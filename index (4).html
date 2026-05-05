@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>NutriRun 🥗</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Exo+2:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;touch-action:none}
+canvas{display:block;position:fixed;top:0;left:0}
+#overlay{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:10}
+#question-panel{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(110%);
+  width:min(680px,96vw);background:linear-gradient(135deg,#0d0d2b,#1a0a3d);
+  border:2px solid #7c3aed;border-bottom:none;border-radius:24px 24px 0 0;
+  padding:28px 28px 24px;transition:transform .45s cubic-bezier(.175,.885,.32,1.275);
+  z-index:100;box-shadow:0 -8px 60px rgba(124,58,237,.6),inset 0 1px 0 rgba(255,255,255,.1);
+  pointer-events:none
+}
+#question-panel.show{transform:translateX(-50%) translateY(0);pointer-events:all}
+#q-timer-bar{height:5px;background:linear-gradient(90deg,#f59e0b,#ef4444);border-radius:3px;margin-bottom:18px;transition:width .1s linear}
+#q-category{font-family:'Orbitron',sans-serif;font-size:10px;color:#a78bfa;letter-spacing:3px;text-transform:uppercase;margin-bottom:10px}
+#q-text{font-family:'Exo 2',sans-serif;font-size:clamp(14px,2.5vw,19px);color:#f1f5f9;line-height:1.6;margin-bottom:20px;min-height:52px}
+#q-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.q-opt{
+  background:rgba(255,255,255,.06);border:1.5px solid rgba(124,58,237,.4);
+  color:#e2e8f0;font-family:'Exo 2',sans-serif;font-size:clamp(12px,2vw,15px);
+  padding:12px 14px;border-radius:12px;cursor:pointer;transition:all .18s;
+  text-align:left;line-height:1.4
+}
+.q-opt:hover{background:rgba(124,58,237,.25);border-color:#7c3aed;transform:scale(1.02)}
+.q-opt.correct{background:rgba(16,185,129,.25);border-color:#10b981;color:#6ee7b7;animation:correctPulse .4s}
+.q-opt.wrong{background:rgba(239,68,68,.2);border-color:#ef4444;color:#fca5a5;animation:wrongShake .35s}
+@keyframes correctPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+@keyframes wrongShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+#hud{position:fixed;top:0;left:0;width:100%;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;z-index:50;pointer-events:none;background:linear-gradient(180deg,rgba(0,0,0,.7) 0%,transparent 100%)}
+#score-display{font-family:'Orbitron',sans-serif;font-size:clamp(18px,3.5vw,28px);color:#facc15;text-shadow:0 0 20px #facc15}
+#lives-display{display:flex;gap:6px;font-size:clamp(18px,3.5vw,26px)}
+#level-display{font-family:'Orbitron',sans-serif;font-size:11px;color:#a78bfa;letter-spacing:2px;text-transform:uppercase}
+#combo-display{font-family:'Orbitron',sans-serif;font-size:14px;color:#f472b6;text-shadow:0 0 15px #f472b6;transition:all .3s;opacity:0}
+#combo-display.show{opacity:1}
+
+/* MENU */
+#menu{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:200;background:radial-gradient(ellipse at 50% 60%,#1a0a3d 0%,#000 70%)}
+.menu-title{font-family:'Orbitron',sans-serif;font-size:clamp(38px,8vw,72px);font-weight:900;background:linear-gradient(135deg,#facc15,#f472b6,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;text-shadow:none;animation:titleFloat 3s ease-in-out infinite;margin-bottom:6px}
+.menu-sub{font-family:'Exo 2',sans-serif;color:#a78bfa;font-size:clamp(13px,2.5vw,18px);letter-spacing:4px;text-transform:uppercase;margin-bottom:48px;animation:fadeInUp .8s .3s both}
+@keyframes titleFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.menu-btn{
+  font-family:'Orbitron',sans-serif;font-size:clamp(14px,2.5vw,18px);
+  background:linear-gradient(135deg,#7c3aed,#f472b6);color:#fff;
+  border:none;padding:16px 48px;border-radius:50px;cursor:pointer;
+  box-shadow:0 8px 32px rgba(124,58,237,.5);transition:all .2s;
+  text-transform:uppercase;letter-spacing:2px;margin-bottom:14px;
+  animation:fadeInUp .8s .5s both
+}
+.menu-btn:hover{transform:scale(1.06) translateY(-2px);box-shadow:0 12px 40px rgba(124,58,237,.7)}
+.menu-controls{animation:fadeInUp .8s .7s both;color:#64748b;font-family:'Exo 2',sans-serif;font-size:13px;text-align:center;line-height:2}
+.menu-controls span{color:#a78bfa}
+.floating-icon{position:absolute;font-size:32px;animation:floatIcon linear infinite;opacity:.7}
+@keyframes floatIcon{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:.7}90%{opacity:.7}100%{transform:translateY(-10vh) rotate(360deg);opacity:0}}
+
+/* GAMEOVER */
+#gameover{position:fixed;top:0;left:0;width:100%;height:100%;display:none;flex-direction:column;align-items:center;justify-content:center;z-index:200;background:rgba(0,0,0,.85);backdrop-filter:blur(8px)}
+.go-title{font-family:'Orbitron',sans-serif;font-size:clamp(32px,7vw,60px);color:#ef4444;text-shadow:0 0 40px #ef4444;margin-bottom:8px;animation:fadeInUp .5s both}
+.go-score{font-family:'Orbitron',sans-serif;font-size:clamp(20px,4vw,36px);color:#facc15;margin-bottom:6px;animation:fadeInUp .5s .1s both}
+.go-correct{font-family:'Exo 2',sans-serif;font-size:16px;color:#a78bfa;margin-bottom:36px;animation:fadeInUp .5s .2s both}
+
+/* Feedback toast */
+#feedback{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%);font-family:'Orbitron',sans-serif;font-size:clamp(20px,4vw,32px);font-weight:900;padding:14px 36px;border-radius:16px;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center}
+#feedback.correct-fb{color:#10b981;text-shadow:0 0 30px #10b981;background:rgba(16,185,129,.15);border:2px solid #10b981}
+#feedback.wrong-fb{color:#ef4444;text-shadow:0 0 30px #ef4444;background:rgba(239,68,68,.15);border:2px solid #ef4444}
+#feedback.show{opacity:1}
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="score-display">0</div>
+  <div>
+    <div id="level-display">LEVEL 1</div>
+    <div id="combo-display">COMBO x1</div>
+  </div>
+  <div id="lives-display">❤️❤️❤️</div>
+</div>
+
+<!-- Question Panel -->
+<div id="question-panel">
+  <div id="q-timer-bar" style="width:100%"></div>
+  <div id="q-category">⚡ NUTRITION CHALLENGE</div>
+  <div id="q-text"></div>
+  <div id="q-options"></div>
+</div>
+
+<!-- Feedback -->
+<div id="feedback"></div>
+
+<!-- Menu -->
+<div id="menu">
+  <div class="menu-title">🥗 NUTRIRUN</div>
+  <div class="menu-sub">Run · Learn · Survive</div>
+  <button class="menu-btn" id="play-btn">▶ START RUNNING</button>
+  <div class="menu-controls">
+    <span>← →</span> Switch Lane &nbsp;|&nbsp; <span>↑ / Space</span> Jump<br>
+    Mobile: <span>Swipe Left/Right/Up</span>
+  </div>
+</div>
+
+<!-- Game Over -->
+<div id="gameover">
+  <div class="go-title">💀 GAME OVER</div>
+  <div class="go-score" id="go-score">Score: 0</div>
+  <div class="go-correct" id="go-correct">✅ 0 Correct Answers</div>
+  <button class="menu-btn" id="restart-btn" style="animation:fadeInUp .5s .3s both">↩ PLAY AGAIN</button>
+</div>
+
+<script>
+// ─────────────────────────────────────────────
+// QUESTIONS DATABASE (60 questions, mixed difficulty)
+// ─────────────────────────────────────────────
+const QUESTIONS = [
+  {q:"Which nutrient provides the most energy per gram?",o:["Carbohydrate","Protein","Fat","Alcohol"],a:2,d:"easy"},
+  {q:"Vitamin C is also known as:",o:["Ascorbic acid","Folic acid","Retinol","Cobalamin"],a:0,d:"easy"},
+  {q:"A deficiency of iron most commonly causes:",o:["Pellagra","Anemia","Scurvy","Rickets"],a:1,d:"easy"},
+  {q:"Which vitamin is synthesized in the skin upon exposure to sunlight?",o:["Vitamin A","Vitamin B12","Vitamin D","Vitamin E"],a:2,d:"easy"},
+  {q:"Which mineral is essential for thyroid function?",o:["Iron","Zinc","Iodine","Magnesium"],a:2,d:"easy"},
+  {q:"A patient with celiac disease must avoid:",o:["Lactose","Gluten","Peanuts","Eggs"],a:1,d:"easy"},
+  {q:"The RDA for protein for a sedentary adult is:",o:["0.4 g/kg","0.8 g/kg","1.5 g/kg","2.5 g/kg"],a:1,d:"easy"},
+  {q:"Which is a water-soluble vitamin?",o:["Vitamin A","Vitamin D","Vitamin E","Vitamin B6"],a:3,d:"easy"},
+  {q:"Pellagra is caused by deficiency of:",o:["Niacin (B3)","Thiamine","Riboflavin","Pyridoxine"],a:0,d:"easy"},
+  {q:"Kwashiorkor is characterized by:",o:["Severe calorie deficiency","Protein deficiency with adequate calories","Vitamin D deficiency","Iron overload"],a:1,d:"easy"},
+  {q:"A BMI of 29 is classified as:",o:["Underweight","Normal weight","Overweight","Obese"],a:2,d:"easy"},
+  {q:"The DASH diet is recommended for:",o:["Diabetes","Hypertension","Kidney stones","Anemia"],a:1,d:"easy"},
+  {q:"The primary site of nutrient absorption is the:",o:["Stomach","Small intestine","Large intestine","Esophagus"],a:1,d:"easy"},
+  {q:"Which food is a source of heme iron?",o:["Spinach","Lentils","Beef","Fortified cereal"],a:2,d:"easy"},
+  {q:"Beriberi is caused by deficiency of:",o:["Thiamine (B1)","Riboflavin (B2)","Niacin (B3)","Pyridoxine (B6)"],a:0,d:"easy"},
+  {q:"Which type of fat is liquid at room temperature?",o:["Saturated fat","Unsaturated fat","Trans fat","Coconut oil"],a:1,d:"easy"},
+  {q:"The condition of brittle bones due to low bone density is:",o:["Osteoporosis","Osteomalacia","Osteomyelitis","Osteoarthritis"],a:0,d:"easy"},
+  {q:"Scurvy is caused by deficiency of:",o:["Vitamin A","Vitamin B12","Vitamin C","Vitamin D"],a:2,d:"easy"},
+  {q:"Which sweetener is non-caloric?",o:["Sucrose","Honey","Stevia","Maple syrup"],a:2,d:"easy"},
+  {q:"The primary energy currency of cells is:",o:["Glucose","ATP","Glycogen","Creatine phosphate"],a:1,d:"easy"},
+  {q:"A patient with dumping syndrome should avoid:",o:["High-fiber foods","High-sugar liquids","Lean protein","Complex carbohydrates"],a:1,d:"medium"},
+  {q:"Soluble fiber lowers cholesterol primarily by:",o:["Binding cholesterol in intestine","Increasing HDL synthesis","Increasing bile acid excretion","Reducing VLDL"],a:2,d:"medium"},
+  {q:"The primary fuel for muscle during high-intensity sprinting is:",o:["Fatty acids","Amino acids","Muscle glycogen","Blood glucose"],a:2,d:"medium"},
+  {q:"Which electrolyte drops most dangerously in refeeding syndrome?",o:["Potassium","Phosphate","Magnesium","Sodium"],a:1,d:"medium"},
+  {q:"A low FODMAP diet is therapeutic for:",o:["Crohn's disease","Irritable bowel syndrome","Ulcerative colitis","Celiac disease"],a:1,d:"medium"},
+  {q:"The protein that transports iron in the blood is:",o:["Albumin","Transferrin","Ferritin","Hemosiderin"],a:1,d:"medium"},
+  {q:"The major storage form of iron in the body is:",o:["Hemoglobin","Myoglobin","Ferritin","Transferrin"],a:2,d:"medium"},
+  {q:"Which amino acid is conditionally essential in PKU?",o:["Tyrosine","Tryptophan","Leucine","Valine"],a:0,d:"medium"},
+  {q:"A patient with cirrhosis and ascites is prescribed:",o:["High-sodium diet","Low-sodium diet","Unrestricted protein","Low-fluid diet only"],a:1,d:"medium"},
+  {q:"Which nutrient enhances non-heme iron absorption?",o:["Calcium","Vitamin C","Phytic acid","Tannins"],a:1,d:"medium"},
+  {q:"The preferred fuel for the heart muscle at rest is:",o:["Glucose","Ketones","Fatty acids","Amino acids"],a:2,d:"medium"},
+  {q:"A deficiency of riboflavin causes:",o:["Cheilosis and glossitis","Pellagra","Scurvy","Night blindness"],a:0,d:"medium"},
+  {q:"The active form of vitamin D is:",o:["Calcitriol","Cholecalciferol","Ergocalciferol","25-hydroxyvitamin D"],a:0,d:"medium"},
+  {q:"A patient on warfarin must maintain consistent intake of:",o:["Vitamin A","Vitamin D","Vitamin K","Vitamin E"],a:2,d:"medium"},
+  {q:"Which dietary pattern reduces colorectal cancer risk?",o:["High red meat, low fiber","High fiber, high fruits/vegetables","High fat, low carb","High sugar, low protein"],a:1,d:"medium"},
+  {q:"The thermic effect of food is highest for:",o:["Fat","Carbohydrate","Protein","Alcohol"],a:2,d:"medium"},
+  {q:"Which vitamin is a major function: myelin sheath maintenance?",o:["Vitamin B6","Vitamin B12","Thiamine","Folate"],a:1,d:"medium"},
+  {q:"The primary cause of type 2 diabetes is:",o:["Autoimmune beta cell destruction","Insulin resistance","Viral infection","Genetic mutation only"],a:1,d:"medium"},
+  {q:"Cystic fibrosis patients often require:",o:["Low-fat diet","High-calorie diet with pancreatic enzymes","Low-protein diet","Fluid restriction"],a:1,d:"medium"},
+  {q:"The major cation inside cells is:",o:["Sodium","Potassium","Chloride","Calcium"],a:1,d:"medium"},
+  {q:"In short bowel syndrome (ileum removed), which malabsorption is most severe?",o:["Vitamin B12 and bile acids","Iron","Glucose","Water-soluble vitamins"],a:0,d:"hard"},
+  {q:"The rate-limiting enzyme in cholesterol synthesis is:",o:["HMG-CoA reductase","HMG-CoA synthase","Acetyl-CoA carboxylase","Lipoprotein lipase"],a:0,d:"hard"},
+  {q:"The major carrier of long-chain fatty acids into mitochondria is:",o:["Carnitine","Albumin","Lipoprotein lipase","Fatty acid binding protein"],a:0,d:"hard"},
+  {q:"In maple syrup urine disease, which amino acids accumulate?",o:["Leucine, isoleucine, valine","Phenylalanine, tyrosine","Methionine, cysteine","Lysine, tryptophan"],a:0,d:"hard"},
+  {q:"Rapid refeeding of malnourished patients is fatal primarily due to:",o:["Hypophosphatemia causing cardiac failure","Hyperglycemia","Hypercalcemia","Metabolic alkalosis"],a:0,d:"hard"},
+  {q:"The glucose transporter that is insulin-sensitive in muscle/adipose is:",o:["GLUT4","GLUT2","GLUT1","GLUT5"],a:0,d:"hard"},
+  {q:"In G6PD deficiency, which food triggers hemolytic anemia?",o:["Fava beans","Spinach","Broccoli","Apples"],a:0,d:"hard"},
+  {q:"In hereditary fructose intolerance, the deficient enzyme is:",o:["Aldolase B","Fructokinase","Fructose-1-phosphatase","Glucose-6-phosphatase"],a:0,d:"hard"},
+  {q:"In galactosemia (classic), the deficient enzyme is:",o:["Galactose-1-phosphate uridyltransferase","Galactokinase","UDP-galactose epimerase","Lactase"],a:0,d:"hard"},
+  {q:"The enzyme converting pyruvate to oxaloacetate (gluconeogenesis first step):",o:["Pyruvate carboxylase","Pyruvate dehydrogenase","PEPCK","Malate dehydrogenase"],a:0,d:"hard"},
+  {q:"A deficiency of which nutrient causes acrodermatitis enteropathica?",o:["Zinc","Biotin","Vitamin A","Essential fatty acids"],a:0,d:"hard"},
+  {q:"Protein has a higher thermic effect than carbohydrate:",o:["20-30% vs 5-10%","5-10% vs 20-30%","Same as fat","Negligible difference"],a:0,d:"hard"},
+  {q:"The limiting amino acid in a vegan diet (without complementary proteins):",o:["Lysine","Methionine","Tryptophan","Threonine"],a:0,d:"hard"},
+  {q:"Methylmalonic acid rises in deficiency of:",o:["Vitamin B12","Folate","Vitamin B6","Vitamin B2"],a:0,d:"hard"},
+  {q:"In von Gierke's disease (G6Pase deficiency), the dietary treatment is:",o:["Frequent feeds with uncooked cornstarch","High protein, low carb","Ketogenic diet","High fat"],a:0,d:"hard"},
+  {q:"Which of the following is a ketone body?",o:["Pyruvate","Oxaloacetate","Acetoacetate","Citrate"],a:2,d:"medium"},
+  {q:"The absorption of non-heme iron requires reduction to:",o:["Fe2+ by vitamin C or gastric acid","Fe3+ by bile salts","Fe2+ by pancreatic enzymes","Fe3+ by calcium"],a:0,d:"hard"},
+  {q:"In Wilson's disease, nutritional management includes:",o:["Low copper diet and zinc acetate","High copper diet","Iron chelation","Low calcium"],a:0,d:"hard"},
+  {q:"A patient with a chylothorax is placed on:",o:["Low-fat diet with MCT oil","High-fat diet","High protein only","High carbohydrate only"],a:0,d:"hard"},
+  {q:"The enzyme that activates pancreatic zymogens in the small intestine:",o:["Enteropeptidase","Trypsin","Chymotrypsin","Carboxypeptidase"],a:0,d:"hard"},
+  {q:"Primary hyperoxaluria type I is caused by deficiency of:",o:["Alanine:glyoxylate aminotransferase","Glycolate oxidase","Hydroxyproline oxidase","Oxalate decarboxylase"],a:0,d:"hard"},
+];
+
+// ─────────────────────────────────────────────
+// GAME ENGINE
+// ─────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+let W, H, CX, HORIZON, GROUND;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  CX = W / 2;
+  HORIZON = H * 0.32;
+  GROUND = H;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// Game state
+let state = 'menu'; // menu | playing | question | gameover
+let score = 0, lives = 3, level = 1, combo = 0, correctCount = 0;
+let speed = 2.8, speedTarget = 2.8;
+let frameCount = 0;
+let nextQuestionIn = 420; // frames
+let usedQuestions = new Set();
+let currentQ = null;
+let qTimer = 0, qTimerMax = 15 * 60; // 15 seconds
+let qAnswered = false;
+
+// ─── PLAYER ─────────────────────────────────
+const LANES = [-1, 0, 1]; // -1=left, 0=center, 1=right
+const LANE_SEP = 200; // pixels at ground
+let player = {
+  lane: 0, targetLane: 0, laneX: 0,
+  jumpT: 0, jumping: false,
+  animT: 0,
+  trail: [],
+  shieldT: 0
+};
+
+function playerScreenPos() {
+  const depth = 0.78;
+  const x = CX + player.laneX;
+  const y = HORIZON + (GROUND - HORIZON) * depth - 20;
+  return { x, y, depth };
+}
+
+// ─── OBSTACLES ──────────────────────────────
+const OBS_TYPES = [
+  { emoji: '🍔', label: 'Burger', color: '#f59e0b', bad: true },
+  { emoji: '🍕', label: 'Pizza', color: '#ef4444', bad: true },
+  { emoji: '🍭', label: 'Candy', color: '#f472b6', bad: true },
+  { emoji: '🥤', label: 'Soda', color: '#06b6d4', bad: true },
+  { emoji: '🍩', label: 'Donut', color: '#8b5cf6', bad: true },
+  { emoji: '🍟', label: 'Fries', color: '#f59e0b', bad: true },
+  { emoji: '🍺', label: 'Beer', color: '#d97706', bad: true },
+  { emoji: '🧁', label: 'Cupcake', color: '#ec4899', bad: true },
+];
+const COLLECT_TYPES = [
+  { emoji: '🍎', label: 'Apple', color: '#10b981', pts: 50 },
+  { emoji: '🥦', label: 'Broccoli', color: '#22c55e', pts: 60 },
+  { emoji: '🥕', label: 'Carrot', color: '#f97316', pts: 55 },
+  { emoji: '🫐', label: 'Blueberry', color: '#818cf8', pts: 70 },
+  { emoji: '🥑', label: 'Avocado', color: '#84cc16', pts: 65 },
+  { emoji: '🐟', label: 'Fish', color: '#38bdf8', pts: 80 },
+  { emoji: '💊', label: 'Vitamin', color: '#a78bfa', pts: 90 },
+  { emoji: '🥗', label: 'Salad', color: '#34d399', pts: 75 },
+];
+
+let obstacles = [];
+let collectibles = [];
+let particles = [];
+let bgStars = [];
+let floatingTexts = [];
+
+// ─── INIT ────────────────────────────────────
+function initGame() {
+  score = 0; lives = 3; level = 1; combo = 0; correctCount = 0;
+  speed = 2.8; speedTarget = 2.8; frameCount = 0;
+  nextQuestionIn = 380 + Math.random() * 240;
+  usedQuestions.clear();
+  obstacles = []; collectibles = []; particles = []; floatingTexts = [];
+  player.lane = 0; player.targetLane = 0; player.laneX = 0;
+  player.jumping = false; player.jumpT = 0; player.animT = 0;
+  player.trail = []; player.shieldT = 0;
+  qAnswered = false;
+  updateHUD();
+}
+
+// ─── OBSTACLE SPAWNING ───────────────────────
+function spawnObstacle() {
+  const lane = LANES[Math.floor(Math.random() * 3)];
+  if (Math.random() < 0.32) {
+    // collectible
+    const t = COLLECT_TYPES[Math.floor(Math.random() * COLLECT_TYPES.length)];
+    collectibles.push({ lane, depth: 0.02, type: t, bobT: Math.random() * Math.PI * 2, hit: false });
+  } else {
+    const t = OBS_TYPES[Math.floor(Math.random() * OBS_TYPES.length)];
+    // sometimes spawn 2 obstacles in different lanes
+    obstacles.push({ lane, depth: 0.02, type: t, hit: false });
+    if (Math.random() < 0.3 && level > 2) {
+      const lane2 = LANES.filter(l => l !== lane)[Math.floor(Math.random() * 2)];
+      const t2 = OBS_TYPES[Math.floor(Math.random() * OBS_TYPES.length)];
+      obstacles.push({ lane: lane2, depth: 0.02, type: t2, hit: false });
+    }
+  }
+}
+
+// ─── QUESTION BARRIER ────────────────────────
+let questionBarrier = null;
+
+function spawnQuestionBarrier() {
+  questionBarrier = { depth: 0.02, opacity: 1, pulseT: 0 };
+  nextQuestionIn = 360 + Math.random() * 280 - level * 10;
+  if (nextQuestionIn < 200) nextQuestionIn = 200;
+}
+
+// ─── PERSPECTIVE MATH ────────────────────────
+function getScreenX(lane, depth) {
+  return CX + lane * LANE_SEP * depth;
+}
+function getScreenY(depth) {
+  return HORIZON + (GROUND - HORIZON) * depth;
+}
+function getScale(depth) {
+  return 0.08 + depth * 0.92;
+}
+
+// ─── DRAWING ─────────────────────────────────
+
+// Road/Track
+function drawTrack() {
+  // Sky gradient
+  const sky = ctx.createLinearGradient(0, 0, 0, HORIZON + 60);
+  sky.addColorStop(0, '#000010');
+  sky.addColorStop(0.5, '#0a0025');
+  sky.addColorStop(1, '#150050');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, W, HORIZON + 60);
+
+  // Stars
+  bgStars.forEach(s => {
+    ctx.save();
+    ctx.globalAlpha = s.a;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  // Road surface gradient
+  const road = ctx.createLinearGradient(0, HORIZON, 0, H);
+  road.addColorStop(0, '#0a0020');
+  road.addColorStop(0.3, '#0d0030');
+  road.addColorStop(1, '#1a0050');
+  ctx.fillStyle = road;
+  // Road as trapezoid
+  ctx.beginPath();
+  ctx.moveTo(CX - 30, HORIZON);
+  ctx.lineTo(CX + 30, HORIZON);
+  ctx.lineTo(W + 100, H);
+  ctx.lineTo(-100, H);
+  ctx.closePath();
+  ctx.fill();
+
+  // Grid lines receding into perspective
+  const GRID_LINES = 18;
+  for (let i = 0; i <= GRID_LINES; i++) {
+    const d = i / GRID_LINES;
+    const y = getScreenY(d);
+    const xL = getScreenX(-1.5, d);
+    const xR = getScreenX(1.5, d);
+    const alpha = d * 0.35;
+    ctx.strokeStyle = `rgba(100,50,200,${alpha})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(xL, y);
+    ctx.lineTo(xR, y);
+    ctx.stroke();
+  }
+
+  // Lane dividers (vertical perspective lines)
+  [-1.5, -0.5, 0.5, 1.5].forEach(lane => {
+    ctx.beginPath();
+    ctx.moveTo(getScreenX(lane, 0.02), getScreenY(0.02));
+    ctx.lineTo(getScreenX(lane, 1.0), getScreenY(1.0));
+    const grad = ctx.createLinearGradient(0, getScreenY(0.02), 0, getScreenY(1.0));
+    grad.addColorStop(0, 'rgba(120,60,255,0)');
+    grad.addColorStop(0.5, 'rgba(120,60,255,0.5)');
+    grad.addColorStop(1, 'rgba(180,120,255,0.2)');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = lane === -0.5 || lane === 0.5 ? 1.5 : 2.5;
+    ctx.stroke();
+  });
+
+  // Center glow line
+  const centerGrad = ctx.createLinearGradient(0, HORIZON, 0, H);
+  centerGrad.addColorStop(0, 'rgba(124,58,237,0)');
+  centerGrad.addColorStop(0.5, 'rgba(167,139,250,0.6)');
+  centerGrad.addColorStop(1, 'rgba(124,58,237,0.1)');
+  ctx.strokeStyle = centerGrad;
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(CX, HORIZON);
+  ctx.lineTo(CX, H);
+  ctx.stroke();
+
+  // Ground glow
+  const glow = ctx.createLinearGradient(0, H - 60, 0, H);
+  glow.addColorStop(0, 'rgba(124,58,237,0.3)');
+  glow.addColorStop(1, 'rgba(124,58,237,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, H - 60, W, 60);
+}
+
+// Draw 3D box obstacle
+function drawObstacle(obs) {
+  if (obs.hit) return;
+  const d = obs.depth;
+  const x = getScreenX(obs.lane, d);
+  const y = getScreenY(d);
+  const sc = getScale(d);
+  const sz = 55 * sc;
+
+  ctx.save();
+  ctx.translate(x, y - sz * 0.5);
+
+  // Box face - top
+  ctx.fillStyle = obs.type.color + 'cc';
+  ctx.beginPath();
+  ctx.ellipse(0, -sz * 0.5, sz * 0.55, sz * 0.18, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Box face - front
+  const g = ctx.createLinearGradient(0, -sz * 0.5, 0, sz * 0.5);
+  g.addColorStop(0, obs.type.color);
+  g.addColorStop(1, '#000');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, sz * 0.55, sz * 0.45, 0, 0, Math.PI, true);
+  ctx.rect(-sz * 0.55, -sz * 0.5, sz * 1.1, sz * 0.5);
+  ctx.fill();
+
+  // Glow
+  ctx.shadowColor = obs.type.color;
+  ctx.shadowBlur = 15 * sc;
+
+  // Emoji
+  ctx.font = `${sz * 1.1}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowBlur = 0;
+  ctx.fillText(obs.type.emoji, 0, sz * 0.05);
+
+  ctx.restore();
+}
+
+// Draw collectible (bouncing)
+function drawCollectible(col) {
+  if (col.hit) return;
+  const d = col.depth;
+  const x = getScreenX(col.lane, d);
+  const y = getScreenY(d);
+  const sc = getScale(d);
+  const sz = 48 * sc;
+  const bob = Math.sin(col.bobT) * 6 * sc;
+
+  ctx.save();
+  ctx.translate(x, y - sz - bob);
+
+  // Glow ring
+  const ring = ctx.createRadialGradient(0, 0, sz * 0.3, 0, 0, sz * 0.8);
+  ring.addColorStop(0, col.type.color + '60');
+  ring.addColorStop(1, 'transparent');
+  ctx.fillStyle = ring;
+  ctx.beginPath();
+  ctx.arc(0, 0, sz * 0.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.font = `${sz}px serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(col.type.emoji, 0, 0);
+
+  ctx.restore();
+}
+
+// Draw question barrier
+function drawQuestionBarrier(b) {
+  const d = b.depth;
+  const y = getScreenY(d);
+  const xL = getScreenX(-1.5, d);
+  const xR = getScreenX(1.5, d);
+  const sc = getScale(d);
+  b.pulseT += 0.08;
+  const pulse = Math.sin(b.pulseT) * 0.15 + 0.85;
+
+  ctx.save();
+  ctx.globalAlpha = Math.min(d * 2.5, 1) * pulse;
+
+  // Barrier wall
+  const barHeight = 80 * sc;
+  const wallGrad = ctx.createLinearGradient(xL, y - barHeight, xR, y);
+  wallGrad.addColorStop(0, '#7c3aed');
+  wallGrad.addColorStop(0.3, '#f472b6');
+  wallGrad.addColorStop(0.6, '#facc15');
+  wallGrad.addColorStop(1, '#10b981');
+  ctx.fillStyle = wallGrad;
+  ctx.globalAlpha *= 0.35;
+  ctx.fillRect(xL, y - barHeight, xR - xL, barHeight);
+  ctx.globalAlpha = Math.min(d * 2.5, 1) * pulse;
+
+  // Top glow line
+  ctx.strokeStyle = '#facc15';
+  ctx.lineWidth = 4 * sc;
+  ctx.shadowColor = '#facc15';
+  ctx.shadowBlur = 20 * sc;
+  ctx.beginPath();
+  ctx.moveTo(xL, y - barHeight);
+  ctx.lineTo(xR, y - barHeight);
+  ctx.stroke();
+
+  // Question mark icons
+  if (sc > 0.3) {
+    ctx.font = `${Math.max(14, 32 * sc)}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowBlur = 15 * sc;
+    ctx.shadowColor = '#f472b6';
+    ['❓', '🧠', '❓'].forEach((em, i) => {
+      const ex = xL + (xR - xL) * (0.2 + i * 0.3);
+      ctx.fillText(em, ex, y - barHeight * 0.5);
+    });
+  }
+  ctx.restore();
+}
+
+// Draw player
+function drawPlayer() {
+  const { x, y } = playerScreenPos();
+  player.animT += speed * 0.15;
+
+  // Trail
+  player.trail.push({ x, y, a: 1 });
+  if (player.trail.length > 12) player.trail.shift();
+  player.trail.forEach((t, i) => {
+    const a = (i / player.trail.length) * 0.4 * t.a;
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#7c3aed';
+    ctx.shadowColor = '#a78bfa';
+    ctx.shadowBlur = 8;
+    ctx.beginPath();
+    ctx.ellipse(t.x, t.y + 30, 12 - i * 0.8, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    t.a *= 0.88;
+  });
+
+  const jumpOffset = player.jumping ? -Math.sin(player.jumpT * Math.PI) * 90 : 0;
+  const bounceOffset = Math.sin(player.animT) * (player.jumping ? 0 : 4);
+  const yp = y + jumpOffset + bounceOffset;
+  const legSwing = Math.sin(player.animT) * (player.jumping ? 25 : 18);
+
+  ctx.save();
+  ctx.translate(x, yp);
+
+  // Shadow on ground
+  if (!player.jumping) {
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.beginPath();
+    ctx.ellipse(0, 46, 20, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Shield ring
+  if (player.shieldT > 0) {
+    ctx.save();
+    ctx.globalAlpha = (player.shieldT / 180) * 0.6;
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = '#facc15';
+    ctx.shadowBlur = 20;
+    ctx.beginPath();
+    ctx.arc(0, -10, 38, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Body glow
+  ctx.shadowColor = '#7c3aed';
+  ctx.shadowBlur = 18;
+
+  // Legs
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = '#a78bfa';
+  ctx.lineWidth = 8;
+  // Left leg
+  ctx.beginPath();
+  ctx.moveTo(-4, 10);
+  ctx.lineTo(-8 - legSwing * 0.3, 30);
+  ctx.lineTo(-5 + legSwing * 0.6, 46);
+  ctx.stroke();
+  // Right leg
+  ctx.beginPath();
+  ctx.moveTo(4, 10);
+  ctx.lineTo(8 + legSwing * 0.3, 30);
+  ctx.lineTo(5 - legSwing * 0.6, 46);
+  ctx.stroke();
+
+  // Arms
+  ctx.strokeStyle = '#c4b5fd';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(-6, -14);
+  ctx.lineTo(-22, 2 + legSwing * 0.5);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(6, -14);
+  ctx.lineTo(22, 2 - legSwing * 0.5);
+  ctx.stroke();
+
+  // Body
+  const bodyGrad = ctx.createLinearGradient(0, -30, 0, 10);
+  bodyGrad.addColorStop(0, '#a78bfa');
+  bodyGrad.addColorStop(1, '#7c3aed');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.roundRect(-12, -30, 24, 42, 8);
+  ctx.fill();
+
+  // Head
+  const headGrad = ctx.createRadialGradient(-4, -46, 2, 0, -42, 18);
+  headGrad.addColorStop(0, '#fcd34d');
+  headGrad.addColorStop(1, '#f59e0b');
+  ctx.fillStyle = headGrad;
+  ctx.shadowBlur = 12;
+  ctx.shadowColor = '#facc15';
+  ctx.beginPath();
+  ctx.arc(0, -44, 16, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eyes
+  ctx.fillStyle = '#1e1b4b';
+  ctx.beginPath();
+  ctx.arc(-5, -46, 3.5, 0, Math.PI * 2);
+  ctx.arc(5, -46, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Eye shine
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(-4, -47.5, 1.5, 0, Math.PI * 2);
+  ctx.arc(6, -47.5, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Smile
+  ctx.strokeStyle = '#1e1b4b';
+  ctx.lineWidth = 2;
+  ctx.shadowBlur = 0;
+  ctx.beginPath();
+  ctx.arc(0, -40, 7, 0.1, Math.PI - 0.1);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// Draw particle
+function drawParticle(p) {
+  ctx.save();
+  ctx.globalAlpha = p.life;
+  ctx.fillStyle = p.color;
+  ctx.shadowColor = p.color;
+  ctx.shadowBlur = 8;
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawFloatingText(ft) {
+  ctx.save();
+  ctx.globalAlpha = ft.life;
+  ctx.font = `bold ${ft.size}px 'Orbitron', sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = ft.color;
+  ctx.shadowColor = ft.color;
+  ctx.shadowBlur = 12;
+  ctx.fillText(ft.text, ft.x, ft.y);
+  ctx.restore();
+}
+
+// ─── PARTICLES ───────────────────────────────
+function spawnParticles(x, y, color, count = 12) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+    const v = 2 + Math.random() * 4;
+    particles.push({
+      x, y, vx: Math.cos(angle) * v, vy: Math.sin(angle) * v - 2,
+      r: 3 + Math.random() * 4, color, life: 1
+    });
+  }
+}
+
+function addFloatingText(x, y, text, color, size = 22) {
+  floatingTexts.push({ x, y, text, color, size, vy: -1.5, life: 1 });
+}
+
+// ─── STARS INIT ──────────────────────────────
+for (let i = 0; i < 120; i++) {
+  bgStars.push({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * HORIZON,
+    r: Math.random() * 1.5,
+    a: 0.2 + Math.random() * 0.6
+  });
+}
+
+// ─── COLLISION ───────────────────────────────
+function checkCollisions() {
+  const { depth: pd } = playerScreenPos();
+
+  obstacles.forEach((obs, i) => {
+    if (obs.hit) return;
+    if (Math.abs(obs.depth - pd) < 0.07 && obs.lane === LANES[player.lane + 1]) {
+      if (!player.jumping || obs.depth > 0.65) {
+        obs.hit = true;
+        if (player.shieldT > 0) { player.shieldT = 0; return; }
+        hitObstacle();
+        spawnParticles(getScreenX(obs.lane, obs.depth), getScreenY(obs.depth), '#ef4444');
+      }
+    }
+  });
+
+  collectibles.forEach(col => {
+    if (col.hit) return;
+    if (Math.abs(col.depth - pd) < 0.07 && col.lane === LANES[player.lane + 1]) {
+      col.hit = true;
+      const pts = col.type.pts * (combo + 1);
+      score += pts;
+      combo++;
+      spawnParticles(getScreenX(col.lane, col.depth), getScreenY(col.depth), col.type.color, 16);
+      addFloatingText(getScreenX(col.lane, col.depth), getScreenY(col.depth) - 30, `+${pts}`, col.type.color);
+      updateHUD();
+    }
+  });
+
+  // Question barrier
+  if (questionBarrier && !questionBarrier.triggered) {
+    const qLane = 0; // barrier spans all lanes
+    if (Math.abs(questionBarrier.depth - pd) < 0.06) {
+      questionBarrier.triggered = true;
+      triggerQuestion();
+    }
+  }
+}
+
+function hitObstacle() {
+  lives = Math.max(0, lives - 1);
+  combo = 0;
+  updateHUD();
+  // Screen shake
+  screenShake(8);
+  if (lives <= 0) {
+    setTimeout(endGame, 200);
+  }
+}
+
+// ─── SCREEN SHAKE ────────────────────────────
+let shakeAmount = 0;
+function screenShake(amount) { shakeAmount = amount; }
+
+// ─── QUESTION LOGIC ──────────────────────────
+let questionPending = null;
+
+function triggerQuestion() {
+  // Pick unused question
+  let available = QUESTIONS.map((q, i) => i).filter(i => !usedQuestions.has(i));
+  if (available.length === 0) { usedQuestions.clear(); available = QUESTIONS.map((q, i) => i); }
+  const idx = available[Math.floor(Math.random() * available.length)];
+  usedQuestions.add(idx);
+  currentQ = { ...QUESTIONS[idx], idx };
+
+  state = 'question';
+  speed = 0;
+  qTimer = 0;
+  qAnswered = false;
+  showQuestion(currentQ);
+}
+
+function showQuestion(q) {
+  const panel = document.getElementById('question-panel');
+  document.getElementById('q-text').textContent = q.q;
+  document.getElementById('q-category').textContent =
+    q.d === 'easy' ? '🟢 EASY QUESTION' : q.d === 'medium' ? '🟡 MEDIUM QUESTION' : '🔴 HARD QUESTION';
+  const opts = document.getElementById('q-options');
+  opts.innerHTML = '';
+  const letters = ['A', 'B', 'C', 'D'];
+  q.o.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'q-opt';
+    btn.innerHTML = `<strong>${letters[i]}.</strong> ${opt}`;
+    btn.addEventListener('click', () => answerQuestion(i));
+    opts.appendChild(btn);
+  });
+  document.getElementById('q-timer-bar').style.width = '100%';
+  panel.classList.add('show');
+}
+
+function answerQuestion(choice) {
+  if (qAnswered) return;
+  qAnswered = true;
+  const correct = choice === currentQ.a;
+  const btns = document.querySelectorAll('.q-opt');
+  btns.forEach((btn, i) => {
+    if (i === currentQ.a) btn.classList.add('correct');
+    else if (i === choice && !correct) btn.classList.add('wrong');
+  });
+
+  if (correct) {
+    correctCount++;
+    const bonusPts = currentQ.d === 'easy' ? 100 : currentQ.d === 'medium' ? 200 : 400;
+    score += bonusPts;
+    combo++;
+    showFeedback(`✅ CORRECT! +${bonusPts}`, true);
+    player.shieldT = 180;
+  } else {
+    lives = Math.max(0, lives - 1);
+    combo = 0;
+    showFeedback('❌ WRONG!', false);
+    screenShake(10);
+  }
+  updateHUD();
+
+  setTimeout(() => {
+    if (lives <= 0) { endGame(); return; }
+    closeQuestion();
+  }, 1200);
+}
+
+function autoWrongAnswer() {
+  if (qAnswered) return;
+  answerQuestion(-1); // guaranteed wrong
+}
+
+function closeQuestion() {
+  document.getElementById('question-panel').classList.remove('show');
+  state = 'playing';
+  speedTarget = 2.8 + level * 0.35;
+  questionBarrier = null;
+}
+
+// ─── FEEDBACK TOAST ──────────────────────────
+let feedbackTimeout = null;
+function showFeedback(msg, correct) {
+  const el = document.getElementById('feedback');
+  el.textContent = msg;
+  el.className = correct ? 'correct-fb show' : 'wrong-fb show';
+  if (feedbackTimeout) clearTimeout(feedbackTimeout);
+  feedbackTimeout = setTimeout(() => el.classList.remove('show'), 1800);
+}
+
+// ─── HUD UPDATE ──────────────────────────────
+function updateHUD() {
+  document.getElementById('score-display').textContent = score.toLocaleString();
+  document.getElementById('level-display').textContent = `LEVEL ${level}`;
+  const hearts = ['❤️', '❤️', '❤️'].map((h, i) => i < lives ? h : '🖤').join('');
+  document.getElementById('lives-display').textContent = hearts;
+  const comboEl = document.getElementById('combo-display');
+  if (combo > 1) {
+    comboEl.textContent = `COMBO ×${combo}`;
+    comboEl.classList.add('show');
+  } else comboEl.classList.remove('show');
+}
+
+// ─── GAME OVER ───────────────────────────────
+function endGame() {
+  state = 'gameover';
+  document.getElementById('question-panel').classList.remove('show');
+  document.getElementById('go-score').textContent = `Score: ${score.toLocaleString()}`;
+  document.getElementById('go-correct').textContent = `✅ ${correctCount} Correct Answers`;
+  document.getElementById('gameover').style.display = 'flex';
+}
+
+// ─── SPAWNING TIMER ──────────────────────────
+let spawnTimer = 0, spawnInterval = 80;
+
+// ─── MAIN LOOP ───────────────────────────────
+let lastT = 0;
+function loop(ts) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(ts - lastT, 33); lastT = ts;
+
+  // Screen shake
+  let sx = 0, sy = 0;
+  if (shakeAmount > 0) {
+    sx = (Math.random() - 0.5) * shakeAmount;
+    sy = (Math.random() - 0.5) * shakeAmount;
+    shakeAmount *= 0.8;
+    if (shakeAmount < 0.3) shakeAmount = 0;
+  }
+
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.clearRect(-10, -10, W + 20, H + 20);
+
+  drawTrack();
+
+  if (state === 'menu') { ctx.restore(); return; }
+
+  frameCount++;
+
+  if (state === 'playing') {
+    // Speed ramp
+    speed += (speedTarget - speed) * 0.02;
+    // Score tick
+    score += Math.round(speed * 0.25);
+    // Level up
+    level = Math.floor(score / 3000) + 1;
+    speedTarget = 2.8 + level * 0.35;
+    if (speedTarget > 9) speedTarget = 9;
+
+    // Spawn
+    spawnTimer++;
+    if (spawnTimer >= spawnInterval) {
+      spawnTimer = 0;
+      spawnInterval = Math.max(40, 85 - level * 5);
+      spawnObstacle();
+    }
+
+    // Question barrier countdown
+    nextQuestionIn--;
+    if (nextQuestionIn <= 0) spawnQuestionBarrier();
+
+    // Move obstacles
+    obstacles = obstacles.filter(o => o.depth < 1.05);
+    obstacles.forEach(o => { o.depth += speed * 0.009; });
+
+    collectibles = collectibles.filter(c => c.depth < 1.05);
+    collectibles.forEach(c => { c.depth += speed * 0.009; c.bobT += 0.12; });
+
+    if (questionBarrier) {
+      questionBarrier.depth += speed * 0.009;
+      if (questionBarrier.depth > 1.1 && !questionBarrier.triggered) questionBarrier = null;
+    }
+
+    // Move particles
+    particles = particles.filter(p => p.life > 0.05);
+    particles.forEach(p => { p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.035; });
+
+    floatingTexts = floatingTexts.filter(f => f.life > 0.05);
+    floatingTexts.forEach(f => { f.y += f.vy; f.life -= 0.022; });
+
+    // Player lane lerp
+    const targetX = LANES[player.targetLane + 1] * LANE_SEP * 0.78;
+    player.laneX += (targetX - player.laneX) * 0.14;
+
+    // Jump physics
+    if (player.jumping) {
+      player.jumpT += 0.045;
+      if (player.jumpT >= 1) { player.jumping = false; player.jumpT = 0; }
+    }
+
+    if (player.shieldT > 0) player.shieldT--;
+
+    checkCollisions();
+    updateHUD();
+
+    // Q timer
+    if (state === 'question') {
+      qTimer++;
+      const pct = Math.max(0, 1 - qTimer / qTimerMax);
+      document.getElementById('q-timer-bar').style.width = (pct * 100) + '%';
+      if (qTimer >= qTimerMax) autoWrongAnswer();
+    }
+  }
+
+  if (state === 'question') {
+    qTimer++;
+    const pct = Math.max(0, 1 - qTimer / qTimerMax);
+    document.getElementById('q-timer-bar').style.width = (pct * 100) + '%';
+    if (qTimer >= qTimerMax && !qAnswered) autoWrongAnswer();
+  }
+
+  // Draw game objects sorted by depth
+  const allObjs = [
+    ...obstacles.map(o => ({ type: 'obs', obj: o, depth: o.depth })),
+    ...collectibles.map(c => ({ type: 'col', obj: c, depth: c.depth })),
+    ...(questionBarrier && !questionBarrier.triggered ? [{ type: 'qb', obj: questionBarrier, depth: questionBarrier.depth }] : [])
+  ].sort((a, b) => a.depth - b.depth);
+
+  allObjs.forEach(item => {
+    if (item.type === 'obs') drawObstacle(item.obj);
+    else if (item.type === 'col') drawCollectible(item.obj);
+    else if (item.type === 'qb') drawQuestionBarrier(item.obj);
+  });
+
+  drawPlayer();
+  particles.forEach(drawParticle);
+  floatingTexts.forEach(drawFloatingText);
+
+  // Speed lines when fast
+  if (speed > 6) {
+    ctx.save();
+    ctx.globalAlpha = (speed - 6) / 8;
+    for (let i = 0; i < 8; i++) {
+      const sx2 = Math.random() * W;
+      const sy2 = HORIZON + Math.random() * (H - HORIZON) * 0.3;
+      ctx.strokeStyle = '#a78bfa';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(sx2, sy2);
+      ctx.lineTo(CX + (sx2 - CX) * 0.02, HORIZON + (sy2 - HORIZON) * 0.02);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// ─── INPUT ───────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (state === 'playing') {
+    if (e.code === 'ArrowLeft' || e.code === 'KeyA') { if (player.targetLane > -1) player.targetLane--; }
+    if (e.code === 'ArrowRight' || e.code === 'KeyD') { if (player.targetLane < 1) player.targetLane++; }
+    if ((e.code === 'ArrowUp' || e.code === 'Space' || e.code === 'KeyW') && !player.jumping) {
+      player.jumping = true; player.jumpT = 0;
+    }
+    e.preventDefault();
+  }
+});
+
+// Touch support
+let touchStartX = 0, touchStartY = 0;
+canvas.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; e.preventDefault(); }, { passive: false });
+canvas.addEventListener('touchend', e => {
+  if (state !== 'playing') return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    if (dx < -30 && player.targetLane > -1) player.targetLane--;
+    if (dx > 30 && player.targetLane < 1) player.targetLane++;
+  } else {
+    if (dy < -30 && !player.jumping) { player.jumping = true; player.jumpT = 0; }
+  }
+  e.preventDefault();
+}, { passive: false });
+
+// ─── MENU FLOATING ICONS ─────────────────────
+const floatEmojis = ['🥗','🍎','💊','🥦','🫀','🧬','🥑','🐟','🥕','🫐','🍊','🧪'];
+floatEmojis.forEach((em, i) => {
+  const el = document.createElement('div');
+  el.className = 'floating-icon';
+  el.textContent = em;
+  el.style.left = Math.random() * 95 + 'vw';
+  el.style.animationDuration = (8 + Math.random() * 12) + 's';
+  el.style.animationDelay = (Math.random() * 8) + 's';
+  document.getElementById('menu').appendChild(el);
+});
+
+// ─── BUTTON LISTENERS ────────────────────────
+document.getElementById('play-btn').addEventListener('click', () => {
+  document.getElementById('menu').style.display = 'none';
+  initGame();
+  state = 'playing';
+});
+document.getElementById('restart-btn').addEventListener('click', () => {
+  document.getElementById('gameover').style.display = 'none';
+  initGame();
+  state = 'playing';
+});
+
+// Start loop
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
